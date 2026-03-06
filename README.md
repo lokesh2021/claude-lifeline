@@ -2,9 +2,7 @@
 
 A real-time statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that tracks context usage, costs, and optionally logs sessions to Obsidian.
 
-```
-@your_username | Claude 4 Opus | ▓▓▓▓░░░░░░ 42% | $0.0031/1k | Session: $0.1847 | API: $12.50 | ✅ healthy
-```
+<img width="621" height="207" alt="image" src="https://github.com/user-attachments/assets/dea69bca-62a3-4285-a0c7-26e60b477dfa" />
 
 ## Features
 
