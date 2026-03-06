@@ -8,6 +8,9 @@
 # Environment variables:
 #   OBSIDIAN_VAULT          — Path to your Obsidian vault (optional, enables logging)
 #   ANTHROPIC_ADMIN_API_KEY — Anthropic Admin API key (optional, enables API spend tracking)
+#
+# Context rot thresholds based on Claude Opus 4.6 Context Management Spec v1.0:
+#   0-50%: Healthy | 50-75%: Attention | 75-90%: Checkpoint | 90-95%: Critical | 95%+: Emergency
 
 input=$(cat)
 
@@ -35,6 +38,9 @@ fi
 
 SESSION_COST_FMT=$(printf "%.4f" "$SESSION_COST")
 TOKEN_DISPLAY=$(echo "$USED_TOKENS" | awk '{printf "%dk", $1/1000}')
+
+# ── Context window size in k ──
+CTX_LIMIT_K=$(echo "$CTX_SIZE" | awk '{printf "%dk", $1/1000}')
 
 # ── GitHub username (cached 60 min) ──
 GH_CACHE="$HOME/.claude/.gh_user_cache"
@@ -74,29 +80,55 @@ fi
 
 API_TOTAL=$(cat "$API_COST_CACHE" 2>/dev/null || echo "0.00")
 
-# ── Build context progress bar ──
-BAR_WIDTH=10
+# ── Build colored context progress bar ──
+BAR_WIDTH=12
 FILLED=$((PCT * BAR_WIDTH / 100))
 EMPTY=$((BAR_WIDTH - FILLED))
-BAR=""
-[ "$FILLED" -gt 0 ] && BAR=$(printf "%${FILLED}s" | tr ' ' '▓')
-[ "$EMPTY"  -gt 0 ] && BAR="${BAR}$(printf "%${EMPTY}s" | tr ' ' '░')"
 
-# ── Context rot warning ──
-if [ "$PCT" -ge 85 ]; then
-  WARNING="🔴 ROT — start new session"
-elif [ "$PCT" -ge 70 ]; then
-  WARNING="⚠️  wrap up soon"
+# ANSI color codes based on threshold tier
+if [ "$PCT" -ge 95 ]; then
+  BAR_COLOR="\033[41;37;1m"  # red bg, white bold (flash effect)
+elif [ "$PCT" -ge 90 ]; then
+  BAR_COLOR="\033[31m"       # red
+elif [ "$PCT" -ge 75 ]; then
+  BAR_COLOR="\033[38;5;208m" # orange
+elif [ "$PCT" -ge 50 ]; then
+  BAR_COLOR="\033[33m"       # yellow
 else
-  WARNING="✅ healthy"
+  BAR_COLOR="\033[32m"       # green
+fi
+RESET="\033[0m"
+DIM="\033[2m"
+
+FILLED_STR=""
+EMPTY_STR=""
+[ "$FILLED" -gt 0 ] && FILLED_STR=$(printf "%${FILLED}s" | tr ' ' '█')
+[ "$EMPTY"  -gt 0 ] && EMPTY_STR=$(printf "%${EMPTY}s" | tr ' ' '░')
+BAR="${BAR_COLOR}${FILLED_STR}${RESET}${DIM}${EMPTY_STR}${RESET}"
+
+# ── Context rot status (Claude Opus 4.6 Context Management Spec v1.0) ──
+if [ "$PCT" -ge 95 ]; then
+  STATUS="${BAR_COLOR}◉◉ EMERGENCY${RESET}"
+elif [ "$PCT" -ge 90 ]; then
+  STATUS="${BAR_COLOR}● CRITICAL${RESET}"
+elif [ "$PCT" -ge 75 ]; then
+  STATUS="${BAR_COLOR}● CHECKPOINT${RESET}"
+elif [ "$PCT" -ge 50 ]; then
+  STATUS="${BAR_COLOR}● ATTENTION${RESET}"
+else
+  STATUS="${BAR_COLOR}● healthy${RESET}"
 fi
 
 # ── GitHub prefix ──
 GH_PREFIX=""
 [ -n "$GH_USER" ] && GH_PREFIX="@${GH_USER} | "
 
-# ── Output to statusline ──
-echo "${GH_PREFIX}${MODEL} | ${BAR} ${PCT}% | \$${COST_PER_1K}/1k | Session: \$${SESSION_COST_FMT} | API: \$${API_TOTAL} | ${WARNING}"
+# ── Output to statusline (two rows) ──
+# Row 1: user | model | [colored bar] pct% | health status
+# Row 2: $/1k · tokens/limit | session cost · API cost
+ROW1="${GH_PREFIX}${MODEL} | ${BAR} ${PCT}%% | ${STATUS}"
+ROW2="${DIM}\$${COST_PER_1K}/1k · ${TOKEN_DISPLAY}/${CTX_LIMIT_K}${RESET}  ${DIM}\$${SESSION_COST_FMT} session · \$${API_TOTAL} API${RESET}"
+printf "${ROW1}\n${ROW2}\n"
 
 # ── Write to Obsidian vault ──
 if [ -n "$OBSIDIAN_VAULT" ] && [ -d "$OBSIDIAN_VAULT" ]; then
@@ -124,10 +156,18 @@ EOF
   # Get git branch if available
   GIT_BRANCH=$(git -C "$(echo "$input" | jq -r '.workspace.current_dir // "."')" branch --show-current 2>/dev/null || echo "—")
 
+  # Plaintext status for Obsidian (no ANSI)
+  if [ "$PCT" -ge 95 ]; then OBS_STATUS="EMERGENCY"
+  elif [ "$PCT" -ge 90 ]; then OBS_STATUS="CRITICAL"
+  elif [ "$PCT" -ge 75 ]; then OBS_STATUS="CHECKPOINT"
+  elif [ "$PCT" -ge 50 ]; then OBS_STATUS="ATTENTION"
+  else OBS_STATUS="healthy"
+  fi
+
   # Append new row (avoids duplicate timestamps by checking last line)
   LAST_TIME=$(tail -1 "$OBSIDIAN_FILE" | grep -o "^| [0-9:]*" | tr -d '| ')
   if [ "$LAST_TIME" != "$TIME" ]; then
-    echo "| $TIME | $MODEL | ${PCT}% | \$$COST_PER_1K | \$$SESSION_COST_FMT | ~$TOKEN_DISPLAY | $GIT_BRANCH | $WARNING |" >> "$OBSIDIAN_FILE"
+    echo "| $TIME | $MODEL | ${PCT}% | \$$COST_PER_1K | \$$SESSION_COST_FMT | ~$TOKEN_DISPLAY | $GIT_BRANCH | $OBS_STATUS |" >> "$OBSIDIAN_FILE"
   fi
 
   # Update/append API total footer
