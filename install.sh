@@ -65,6 +65,10 @@ cp "$SCRIPT_DIR/report.sh" "$HOME/.claude/claude-lifeline-report"
 chmod +x "$HOME/.claude/claude-lifeline-report"
 echo -e "${GREEN}✓${NC} Installed weekly report to ~/.claude/claude-lifeline-report"
 
+cp "$SCRIPT_DIR/config.sh" "$HOME/.claude/claude-lifeline-config"
+chmod +x "$HOME/.claude/claude-lifeline-config"
+echo -e "${GREEN}✓${NC} Installed configurator to ~/.claude/claude-lifeline-config"
+
 # ── Auto-configure settings.json ──
 SETTINGS_FILE="$HOME/.claude/settings.json"
 
@@ -135,7 +139,18 @@ if [ -n "$EXPORT_KEY" ]; then
 fi
 
 echo ""
+echo -e "${DIM}────────────────────────────────────────────${NC}"
+read -p "Configure what to show in the statusline now? [Y/n] " -n 1 -r
+echo ""
+if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+  bash "$SCRIPT_DIR/config.sh"
+else
+  echo -e "${DIM}You can configure anytime with: ~/.claude/claude-lifeline-config${NC}"
+  echo ""
+fi
+
 echo -e "${GREEN}${BOLD}Done!${NC} Restart Claude Code to see your statusline."
-echo -e "${DIM}Weekly report: ~/.claude/claude-lifeline-report${NC}"
-echo -e "${DIM}For help: https://github.com/lokesh2021/claude-lifeline${NC}"
+echo -e "${DIM}Weekly report:  claude-lifeline-report${NC}"
+echo -e "${DIM}Reconfigure:    claude-lifeline-config${NC}"
+echo -e "${DIM}Help:           https://github.com/lokesh2021/claude-lifeline${NC}"
 echo ""
