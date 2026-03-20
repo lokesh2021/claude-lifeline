@@ -158,6 +158,31 @@ ROW1="${GH_PREFIX}${MODEL} | ${BAR} ${PCT}%% | ${STATUS}${GIT_PREFIX}"
 ROW2="${DIM}\$${COST_PER_1K}/1k · ${TOKEN_DISPLAY}/${CTX_LIMIT_K} · cache:${CACHE_PCT}%${RESET}  ${DIM}\$${SESSION_COST_FMT} session · \$${API_TOTAL} API · ${DURATION_FMT}${RESET}"
 printf "${ROW1}\n${ROW2}\n"
 
+# ── Daily token & cost tracker ──
+_LIFELINE_DIR="$HOME/.claude/.lifeline"
+mkdir -p "$_LIFELINE_DIR"
+_LOG_DATE=$(date +"%Y-%m-%d")
+_DAILY_LOG="${_LIFELINE_DIR}/${_LOG_DATE}.tsv"
+_STATE_FILE="${_LIFELINE_DIR}/.state"
+_NOW_EPOCH=$(date +%s)
+
+# Read last state: "last_cost last_epoch"
+_LAST_COST=$(awk '{print $1}' "$_STATE_FILE" 2>/dev/null || echo "0")
+_LAST_EPOCH=$(awk '{print $2}' "$_STATE_FILE" 2>/dev/null || echo "0")
+
+# Log if: 5+ min elapsed, cost grew $0.005+, or new session detected (cost reset)
+_LOG=0
+[ $((_NOW_EPOCH - _LAST_EPOCH)) -ge 300 ] && _LOG=1
+awk "BEGIN{exit !(($SESSION_COST+0) - ($_LAST_COST+0) >= 0.005)}" 2>/dev/null && _LOG=1
+awk "BEGIN{exit !(($_LAST_COST+0) > 0.005 && ($SESSION_COST+0) < 0.001)}" 2>/dev/null && _LOG=1
+
+if [ "$_LOG" = "1" ]; then
+  printf "%s\t%s\t%s\t%s\t%s\t%s\n" \
+    "$(date +%H:%M:%S)" "$MODEL" "$USED_TOKENS" "$SESSION_COST_FMT" "$CACHE_PCT" "${GIT_BRANCH:-—}" \
+    >> "$_DAILY_LOG"
+  printf "%s %s\n" "$SESSION_COST_FMT" "$_NOW_EPOCH" > "$_STATE_FILE"
+fi
+
 # ── Write to Obsidian vault ──
 if [ -n "$OBSIDIAN_VAULT" ] && [ -d "$OBSIDIAN_VAULT" ]; then
   OBSIDIAN_DIR="${OBSIDIAN_VAULT}/Claude Sessions"

@@ -16,7 +16,7 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 echo ""
-echo -e "${BOLD}Claude Code Statusline${NC} — Installer"
+echo -e "${BOLD}Claude Lifeline${NC} — Installer"
 echo -e "${DIM}─────────────────────────────────────${NC}"
 echo ""
 
@@ -54,28 +54,30 @@ fi
 # ── Ensure ~/.claude exists ──
 mkdir -p "$HOME/.claude"
 
-# ── Copy statusline script ──
+# ── Copy scripts ──
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 cp "$SCRIPT_DIR/statusline.sh" "$HOME/.claude/statusline.sh"
 chmod +x "$HOME/.claude/statusline.sh"
-echo -e "${GREEN}✓${NC} Installed statusline.sh to ~/.claude/statusline.sh"
+echo -e "${GREEN}✓${NC} Installed statusline to ~/.claude/statusline.sh"
 
-# ── Merge statusLine config into settings.json ──
+cp "$SCRIPT_DIR/report.sh" "$HOME/.claude/claude-lifeline-report"
+chmod +x "$HOME/.claude/claude-lifeline-report"
+echo -e "${GREEN}✓${NC} Installed weekly report to ~/.claude/claude-lifeline-report"
+
+# ── Auto-configure settings.json ──
 SETTINGS_FILE="$HOME/.claude/settings.json"
 
 if [ -f "$SETTINGS_FILE" ]; then
-  # Check if statusLine is already configured
   if jq -e '.statusLine' "$SETTINGS_FILE" &>/dev/null; then
     echo -e "${YELLOW}!${NC} statusLine already configured in settings.json — skipping"
   else
-    # Merge statusLine into existing settings
     TMP=$(mktemp)
     jq '. + {"statusLine": {"type": "command", "command": "bash ~/.claude/statusline.sh"}}' "$SETTINGS_FILE" > "$TMP"
     mv "$TMP" "$SETTINGS_FILE"
     echo -e "${GREEN}✓${NC} Added statusLine config to settings.json"
   fi
 else
-  # Create new settings.json with just statusLine
   cat > "$SETTINGS_FILE" << 'EOF'
 {
   "statusLine": {
@@ -97,15 +99,13 @@ echo ""
 # Obsidian vault
 read -p "Obsidian vault path (leave blank to skip): " VAULT_PATH
 if [ -n "$VAULT_PATH" ]; then
-  # Expand ~ if present
   VAULT_PATH="${VAULT_PATH/#\~/$HOME}"
   if [ -d "$VAULT_PATH" ]; then
     echo -e "${GREEN}✓${NC} Vault found: $VAULT_PATH"
-    EXPORT_VAULT="export OBSIDIAN_VAULT=\"$VAULT_PATH\""
   else
     echo -e "${YELLOW}!${NC} Directory not found — saving anyway"
-    EXPORT_VAULT="export OBSIDIAN_VAULT=\"$VAULT_PATH\""
   fi
+  EXPORT_VAULT="export OBSIDIAN_VAULT=\"$VAULT_PATH\""
 fi
 
 # Admin API key
@@ -121,7 +121,6 @@ fi
 if [ -n "$EXPORT_VAULT" ] || [ -n "$EXPORT_KEY" ]; then
   echo ""
 
-  # Detect shell profile
   if [ -f "$HOME/.zshrc" ]; then
     PROFILE="$HOME/.zshrc"
   elif [ -f "$HOME/.bashrc" ]; then
@@ -136,7 +135,7 @@ if [ -n "$EXPORT_VAULT" ] || [ -n "$EXPORT_KEY" ]; then
   echo ""
   if [[ ! $REPLY =~ ^[Nn]$ ]]; then
     echo "" >> "$PROFILE"
-    echo "# Claude Code Statusline" >> "$PROFILE"
+    echo "# Claude Lifeline" >> "$PROFILE"
     [ -n "$EXPORT_VAULT" ] && echo "$EXPORT_VAULT" >> "$PROFILE"
     [ -n "$EXPORT_KEY" ] && echo "$EXPORT_KEY" >> "$PROFILE"
     echo -e "${GREEN}✓${NC} Added environment variables to $PROFILE"
@@ -151,5 +150,6 @@ fi
 
 echo ""
 echo -e "${GREEN}${BOLD}Done!${NC} Restart Claude Code to see your statusline."
+echo -e "${DIM}Weekly report: ~/.claude/claude-lifeline-report${NC}"
 echo -e "${DIM}For help: https://github.com/lokesh2021/claude-lifeline${NC}"
 echo ""
