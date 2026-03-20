@@ -1,156 +1,123 @@
-# claude-code-statusline
+# claude-lifeline
 
-A real-time statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that tracks context usage, costs, and optionally logs sessions to Obsidian.
+A real-time statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that shows context usage, cost, git state, cache efficiency, and session duration — all inside your terminal.
 
-<img width="621" height="207" alt="image" src="https://github.com/user-attachments/assets/dea69bca-62a3-4285-a0c7-26e60b477dfa" />
+## What it looks like
 
-## Features
-
-- **Context rot tracking** — visual progress bar + health warnings at 70% and 85%
-- **Real-time cost** — per-1k-token rate and session total
-- **API spend** — month-to-date billing via Anthropic Admin API (optional)
-- **GitHub identity** — shows your `@username` from `gh` CLI
-- **Obsidian logging** — auto-generates daily session tables (optional)
-
-## Quick Install
-
-```bash
-git clone https://github.com/blushdas/claude-code-statusline.git
-cd claude-code-statusline
-bash install.sh
+```
+@lokesh2021 | Claude Sonnet 4.6 | ████░░░░░░░░ 33% | ● healthy | ⎇ main*
+$0.0031/1k · 45k/200k · cache:67%  $0.0412 session · $1.23 API · 14m
 ```
 
-The installer will:
-1. Copy `statusline.sh` to `~/.claude/statusline.sh`
-2. Add the `statusLine` config to `~/.claude/settings.json` (preserves existing settings)
-3. Optionally prompt for environment variables
+**Row 1** — GitHub user · model · context bar + % · health status · git branch (`*` = dirty)
+**Row 2** — cost/1k · tokens used/limit · cache hit rate · session cost · API spend · elapsed time
 
-## Manual Setup
-
-### 1. Copy the script
+## Install via Homebrew
 
 ```bash
-cp statusline.sh ~/.claude/statusline.sh
-chmod +x ~/.claude/statusline.sh
+brew tap lokesh2021/claude-lifeline
+brew install claude-lifeline
 ```
 
-### 2. Add to settings
-
-Add this to `~/.claude/settings.json`:
+Then add to `~/.claude/settings.json`:
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "bash ~/.claude/statusline.sh"
+    "command": "claude-lifeline"
   }
 }
 ```
 
-### 3. Restart Claude Code
+Restart Claude Code — done.
 
-The statusline appears at the bottom of your terminal.
+## Install via script (no Homebrew)
+
+```bash
+git clone https://github.com/lokesh2021/claude-lifeline.git
+cd claude-lifeline
+bash install.sh
+```
+
+The installer copies `statusline.sh` to `~/.claude/statusline.sh`, merges the `statusLine` config into `~/.claude/settings.json`, and optionally writes env vars to your shell profile.
 
 ## Configuration
 
-All configuration is via environment variables. Add these to your `.zshrc` / `.bashrc`:
+All optional — set in your `.zshrc` / `.bashrc`:
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `OBSIDIAN_VAULT` | No | Path to your Obsidian vault for session logging |
-| `ANTHROPIC_ADMIN_API_KEY` | No | Admin API key for month-to-date spend tracking |
-
-### Example `.zshrc`
+| Variable | Description |
+|----------|-------------|
+| `OBSIDIAN_VAULT` | Path to your Obsidian vault — enables daily session logging |
+| `ANTHROPIC_ADMIN_API_KEY` | Admin API key for month-to-date spend tracking |
 
 ```bash
-# Claude Code Statusline
+# ~/.zshrc
 export OBSIDIAN_VAULT="$HOME/Documents/MyVault"
 export ANTHROPIC_ADMIN_API_KEY="sk-ant-admin01-..."
 ```
+
+## Features
+
+- **Context bar** — color-coded fill (green → yellow → orange → red) based on Claude's context management spec thresholds
+- **Health status** — `healthy` / `ATTENTION` / `CHECKPOINT` / `CRITICAL` / `EMERGENCY` at 50/75/90/95%
+- **Cache hit rate** — `cache:67%` shows what fraction of tokens came from prompt cache (lower cost)
+- **Git branch + dirty indicator** — `⎇ main*` — `*` appears when there are uncommitted changes
+- **Session duration** — elapsed time formatted as `8s`, `42m`, `1h23m`
+- **Real-time cost** — per-1k-token rate and session total
+- **API spend** — month-to-date billing via Anthropic Admin API (optional, cached 5 min)
+- **GitHub identity** — shows your `@username` from `gh` CLI (cached 60 min)
+- **Obsidian logging** — auto-generates daily session tables (optional)
+
+## Context rot thresholds
+
+Based on the Claude Opus 4.6 Context Management Spec:
+
+| % used | Color | Status |
+|--------|-------|--------|
+| 0–49% | green | `● healthy` |
+| 50–74% | yellow | `● ATTENTION` |
+| 75–89% | orange | `● CHECKPOINT` |
+| 90–94% | red | `● CRITICAL` |
+| 95%+ | red bg | `◉◉ EMERGENCY` |
 
 ## Dependencies
 
 | Tool | Required | Install |
 |------|----------|---------|
-| `jq` | Yes | `brew install jq` / `apt install jq` |
-| `gh` | Yes | `brew install gh` / `apt install gh` |
-| `bc` | Yes | Pre-installed on most systems |
-| `curl` | For API spend | Pre-installed on most systems |
+| `jq` | Yes | `brew install jq` |
+| `gh` | Yes | `brew install gh` |
+| `bc` | Yes | Pre-installed on macOS/Linux |
+| `curl` | For API spend | Pre-installed |
 
-## Context Rot Thresholds
+Homebrew install handles `jq` and `gh` automatically.
 
-The statusline warns you as context fills up:
+## Obsidian integration
 
-| Threshold | Display | Meaning |
-|-----------|---------|---------|
-| < 70% | `✅ healthy` | Normal operation |
-| 70–84% | `⚠️  wrap up soon` | Start wrapping up or compacting |
-| 85%+ | `🔴 ROT — start new session` | Context is degraded, start fresh |
-
-## Obsidian Integration
-
-When `OBSIDIAN_VAULT` is set, the statusline creates daily notes at:
+When `OBSIDIAN_VAULT` is set, claude-lifeline creates a daily note at:
 
 ```
 {OBSIDIAN_VAULT}/Claude Sessions/Claude Sessions — 2025-03-15.md
 ```
 
-Each note contains a live-updating table:
-
-| Time | Model | Context% | $/1k tokens | Session $ | Tokens | Git Branch | Status |
-|------|-------|----------|-------------|-----------|--------|------------|--------|
-| 14:22:01 | Claude 4 Opus | 23% | $0.0029 | $0.0412 | ~14k | main | ✅ healthy |
-| 14:35:18 | Claude 4 Opus | 45% | $0.0031 | $0.1203 | ~39k | feat/auth | ✅ healthy |
-
-Plus a footer with month-to-date API spend.
-
-See [`examples/obsidian-sample.md`](examples/obsidian-sample.md) for a full example.
-
-## API Spend Tracking
-
-To track your total Anthropic API spend:
-
-1. Go to [console.anthropic.com/settings/admin-keys](https://console.anthropic.com/settings/admin-keys)
-2. Create an Admin API key
-3. Set `ANTHROPIC_ADMIN_API_KEY` in your shell profile
-
-The API cost is cached for 5 minutes to avoid excessive requests. Without this key, the statusline tracks session costs locally.
-
-> **Note:** The Admin API returns costs in cents. The script divides by 100 to display dollars correctly.
-
-## How It Works
-
-Claude Code pipes a JSON blob to the statusline command on each update. The script:
-
-1. Parses the JSON with `jq` for model, tokens, cost, and context window data
-2. Calculates real-time cost-per-1k-tokens
-3. Fetches your GitHub username (cached 60 min)
-4. Optionally queries the Anthropic Admin API for month-to-date spend (cached 5 min)
-5. Builds a visual progress bar and context health warning
-6. Outputs the formatted statusline
-7. Optionally appends a row to the Obsidian daily note
+Each note contains a live-updating table with time, model, context %, cost, tokens, git branch, and status — plus a footer with month-to-date API spend.
 
 ## Troubleshooting
 
 **Statusline not showing?**
-- Make sure `~/.claude/settings.json` has the `statusLine` config
-- Restart Claude Code after making changes
+- Check `~/.claude/settings.json` has the `statusLine` block
+- Restart Claude Code after changes
 
 **`jq: command not found`**
-- Install jq: `brew install jq` (macOS) or `apt install jq` (Linux)
+- `brew install jq`
 
 **API cost shows $0.00?**
-- Check that `ANTHROPIC_ADMIN_API_KEY` is set: `echo $ANTHROPIC_ADMIN_API_KEY`
-- The key needs Admin permissions, not just API access
-- Cost data refreshes every 5 minutes (check `~/.claude/.api_cost_cache`)
+- Verify `echo $ANTHROPIC_ADMIN_API_KEY` — needs Admin permissions
+- Cache lives at `~/.claude/.api_cost_cache`, refreshes every 5 min
 
 **GitHub username not showing?**
-- Make sure you're logged in: `gh auth status`
-- Cache refreshes every 60 minutes (check `~/.claude/.gh_user_cache`)
-
-**Obsidian notes not appearing?**
-- Verify `OBSIDIAN_VAULT` points to a valid directory: `ls $OBSIDIAN_VAULT`
-- Notes are created in `$OBSIDIAN_VAULT/Claude Sessions/`
+- `gh auth status` — must be authenticated
+- Cache at `~/.claude/.gh_user_cache`, refreshes every 60 min
 
 ## License
 

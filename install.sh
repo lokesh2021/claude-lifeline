@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # ─────────────────────────────────────────
-# Claude Code Statusline — Installer
-# https://github.com/blushdas/claude-code-statusline
+# Claude Lifeline — Installer
+# https://github.com/lokesh2021/claude-lifeline
 # ─────────────────────────────────────────
 
 set -e
@@ -151,5 +151,5 @@ fi
 
 echo ""
 echo -e "${GREEN}${BOLD}Done!${NC} Restart Claude Code to see your statusline."
-echo -e "${DIM}For help: https://github.com/blushdas/claude-code-statusline${NC}"
+echo -e "${DIM}For help: https://github.com/lokesh2021/claude-lifeline${NC}"
 echo ""

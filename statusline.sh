@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # ─────────────────────────────────────────
-# Claude Code Statusline + Obsidian Logger
-# https://github.com/blushdas/claude-code-statusline
+# Claude Lifeline — Statusline + Obsidian Logger
+# https://github.com/lokesh2021/claude-lifeline
 # ─────────────────────────────────────────
 #
 # Environment variables:
@@ -22,12 +22,31 @@ SESSION_COST=$(echo "$input" | jq -r '.cost.total_cost_usd // 0')
 SESSION_DURATION_MS=$(echo "$input" | jq -r '.cost.total_duration_ms // 0')
 
 # ── Token count (sum all types) ──
+CACHE_READ_TOKENS=$(echo "$input" | jq -r '.context_window.current_usage.cache_read_input_tokens // 0')
 USED_TOKENS=$(echo "$input" | jq -r '
   ((.context_window.current_usage.input_tokens // 0) +
    (.context_window.current_usage.cache_creation_input_tokens // 0) +
    (.context_window.current_usage.cache_read_input_tokens // 0) +
    (.context_window.current_usage.output_tokens // 0))
 ')
+
+# ── Cache hit rate ──
+if [ "$USED_TOKENS" -gt 0 ]; then
+  CACHE_PCT=$(echo "$CACHE_READ_TOKENS $USED_TOKENS" | awk '{printf "%d", ($1/$2)*100}')
+else
+  CACHE_PCT="0"
+fi
+
+# ── Session duration ──
+SESSION_TOTAL_SECS=$((SESSION_DURATION_MS / 1000))
+SESSION_MINS=$((SESSION_TOTAL_SECS / 60))
+if [ "$SESSION_MINS" -ge 60 ]; then
+  DURATION_FMT="$((SESSION_MINS / 60))h$((SESSION_MINS % 60))m"
+elif [ "$SESSION_MINS" -gt 0 ]; then
+  DURATION_FMT="${SESSION_MINS}m"
+else
+  DURATION_FMT="${SESSION_TOTAL_SECS}s"
+fi
 
 # ── Cost per 1k tokens (real-time) ──
 if [ "$USED_TOKENS" -gt 0 ] && [ "$(echo "$SESSION_COST > 0" | bc -l 2>/dev/null)" = "1" ]; then
@@ -119,15 +138,24 @@ else
   STATUS="${BAR_COLOR}● healthy${RESET}"
 fi
 
+# ── Git branch + dirty state ──
+WORK_DIR=$(echo "$input" | jq -r '.workspace.current_dir // "."')
+GIT_BRANCH=$(git -C "$WORK_DIR" branch --show-current 2>/dev/null || echo "")
+GIT_DIRTY=$(git -C "$WORK_DIR" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+DIRTY_MARK=""
+[ "${GIT_DIRTY:-0}" -gt 0 ] && DIRTY_MARK="*"
+GIT_PREFIX=""
+[ -n "$GIT_BRANCH" ] && GIT_PREFIX=" | ⎇ ${GIT_BRANCH}${DIRTY_MARK}"
+
 # ── GitHub prefix ──
 GH_PREFIX=""
 [ -n "$GH_USER" ] && GH_PREFIX="@${GH_USER} | "
 
 # ── Output to statusline (two rows) ──
-# Row 1: user | model | [colored bar] pct% | health status
+# Row 1: user | model | [colored bar] pct% | health status | branch
 # Row 2: $/1k · tokens/limit | session cost · API cost
-ROW1="${GH_PREFIX}${MODEL} | ${BAR} ${PCT}%% | ${STATUS}"
-ROW2="${DIM}\$${COST_PER_1K}/1k · ${TOKEN_DISPLAY}/${CTX_LIMIT_K}${RESET}  ${DIM}\$${SESSION_COST_FMT} session · \$${API_TOTAL} API${RESET}"
+ROW1="${GH_PREFIX}${MODEL} | ${BAR} ${PCT}%% | ${STATUS}${GIT_PREFIX}"
+ROW2="${DIM}\$${COST_PER_1K}/1k · ${TOKEN_DISPLAY}/${CTX_LIMIT_K} · cache:${CACHE_PCT}%${RESET}  ${DIM}\$${SESSION_COST_FMT} session · \$${API_TOTAL} API · ${DURATION_FMT}${RESET}"
 printf "${ROW1}\n${ROW2}\n"
 
 # ── Write to Obsidian vault ──
@@ -153,9 +181,6 @@ if [ -n "$OBSIDIAN_VAULT" ] && [ -d "$OBSIDIAN_VAULT" ]; then
 EOF
   fi
 
-  # Get git branch if available
-  GIT_BRANCH=$(git -C "$(echo "$input" | jq -r '.workspace.current_dir // "."')" branch --show-current 2>/dev/null || echo "—")
-
   # Plaintext status for Obsidian (no ANSI)
   if [ "$PCT" -ge 95 ]; then OBS_STATUS="EMERGENCY"
   elif [ "$PCT" -ge 90 ]; then OBS_STATUS="CRITICAL"
@@ -167,7 +192,7 @@ EOF
   # Append new row (avoids duplicate timestamps by checking last line)
   LAST_TIME=$(tail -1 "$OBSIDIAN_FILE" | grep -o "^| [0-9:]*" | tr -d '| ')
   if [ "$LAST_TIME" != "$TIME" ]; then
-    echo "| $TIME | $MODEL | ${PCT}% | \$$COST_PER_1K | \$$SESSION_COST_FMT | ~$TOKEN_DISPLAY | $GIT_BRANCH | $OBS_STATUS |" >> "$OBSIDIAN_FILE"
+    echo "| $TIME | $MODEL | ${PCT}% | \$$COST_PER_1K | \$$SESSION_COST_FMT | ~$TOKEN_DISPLAY | ${GIT_BRANCH:-—} | $OBS_STATUS |" >> "$OBSIDIAN_FILE"
   fi
 
   # Update/append API total footer
