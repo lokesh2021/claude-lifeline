@@ -155,7 +155,7 @@ GH_PREFIX=""
 # Row 1: user | model | [colored bar] pct% | health status | branch
 # Row 2: $/1k · tokens/limit | session cost · API cost
 ROW1="${GH_PREFIX}${MODEL} | ${BAR} ${PCT}%% | ${STATUS}${GIT_PREFIX}"
-ROW2="${DIM}\$${COST_PER_1K}/1k · ${TOKEN_DISPLAY}/${CTX_LIMIT_K} · cache:${CACHE_PCT}%${RESET}  ${DIM}\$${SESSION_COST_FMT} session · \$${API_TOTAL} API · ${DURATION_FMT}${RESET}"
+ROW2="${DIM}\$${COST_PER_1K}/1k · ${TOKEN_DISPLAY}/${CTX_LIMIT_K} · cache:${CACHE_PCT}%%${RESET}  ${DIM}\$${SESSION_COST_FMT} session · \$${API_TOTAL} API · ${DURATION_FMT}${RESET}"
 printf "${ROW1}\n${ROW2}\n"
 
 # ── Daily token & cost tracker ──
