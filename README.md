@@ -44,16 +44,14 @@ The installer copies `statusline.sh` to `~/.claude/statusline.sh`, merges the `s
 
 ## Configuration
 
-All optional — set in your `.zshrc` / `.bashrc`:
+Optional — set in your `.zshrc` / `.bashrc`:
 
 | Variable | Description |
 |----------|-------------|
-| `OBSIDIAN_VAULT` | Path to your Obsidian vault — enables daily session logging |
 | `ANTHROPIC_ADMIN_API_KEY` | Admin API key for month-to-date spend tracking |
 
 ```bash
 # ~/.zshrc
-export OBSIDIAN_VAULT="$HOME/Documents/MyVault"
 export ANTHROPIC_ADMIN_API_KEY="sk-ant-admin01-..."
 ```
 
@@ -67,7 +65,6 @@ export ANTHROPIC_ADMIN_API_KEY="sk-ant-admin01-..."
 - **Real-time cost** — per-1k-token rate and session total
 - **API spend** — month-to-date billing via Anthropic Admin API (optional, cached 5 min)
 - **GitHub identity** — shows your `@username` from `gh` CLI (cached 60 min)
-- **Obsidian logging** — auto-generates daily session tables (optional)
 
 ## Context rot thresholds
 
@@ -91,16 +88,6 @@ Based on the Claude Opus 4.6 Context Management Spec:
 | `curl` | For API spend | Pre-installed |
 
 Homebrew install handles `jq` and `gh` automatically.
-
-## Obsidian integration
-
-When `OBSIDIAN_VAULT` is set, claude-lifeline creates a daily note at:
-
-```
-{OBSIDIAN_VAULT}/Claude Sessions/Claude Sessions — 2025-03-15.md
-```
-
-Each note contains a live-updating table with time, model, context %, cost, tokens, git branch, and status — plus a footer with month-to-date API spend.
 
 ## Troubleshooting
 

@@ -96,18 +96,6 @@ echo -e "${DIM}These environment variables enable extra features.${NC}"
 echo -e "${DIM}You can skip these and add them later to your shell profile.${NC}"
 echo ""
 
-# Obsidian vault
-read -p "Obsidian vault path (leave blank to skip): " VAULT_PATH
-if [ -n "$VAULT_PATH" ]; then
-  VAULT_PATH="${VAULT_PATH/#\~/$HOME}"
-  if [ -d "$VAULT_PATH" ]; then
-    echo -e "${GREEN}✓${NC} Vault found: $VAULT_PATH"
-  else
-    echo -e "${YELLOW}!${NC} Directory not found — saving anyway"
-  fi
-  EXPORT_VAULT="export OBSIDIAN_VAULT=\"$VAULT_PATH\""
-fi
-
 # Admin API key
 echo ""
 echo -e "${DIM}An Anthropic Admin API key enables month-to-date API spend tracking.${NC}"
@@ -118,7 +106,7 @@ if [ -n "$ADMIN_KEY" ]; then
 fi
 
 # ── Write to shell profile ──
-if [ -n "$EXPORT_VAULT" ] || [ -n "$EXPORT_KEY" ]; then
+if [ -n "$EXPORT_KEY" ]; then
   echo ""
 
   if [ -f "$HOME/.zshrc" ]; then
@@ -136,14 +124,12 @@ if [ -n "$EXPORT_VAULT" ] || [ -n "$EXPORT_KEY" ]; then
   if [[ ! $REPLY =~ ^[Nn]$ ]]; then
     echo "" >> "$PROFILE"
     echo "# Claude Lifeline" >> "$PROFILE"
-    [ -n "$EXPORT_VAULT" ] && echo "$EXPORT_VAULT" >> "$PROFILE"
     [ -n "$EXPORT_KEY" ] && echo "$EXPORT_KEY" >> "$PROFILE"
     echo -e "${GREEN}✓${NC} Added environment variables to $PROFILE"
     echo -e "${DIM}  Run: source $PROFILE${NC}"
   else
     echo ""
-    echo "Add these to your shell profile manually:"
-    [ -n "$EXPORT_VAULT" ] && echo "  $EXPORT_VAULT"
+    echo "Add this to your shell profile manually:"
     [ -n "$EXPORT_KEY" ] && echo "  $EXPORT_KEY"
   fi
 fi
